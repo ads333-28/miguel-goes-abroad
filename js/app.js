@@ -8,11 +8,11 @@ import {
   onSnapshot,
   serverTimestamp,
 } from "https://www.gstatic.com/firebasejs/12.19.0/firebase-firestore.js";
-import { PEOPLE, SEASON_START, SEASON_END } from "./config.js";
+import { PEOPLE, SEASON_START, SEASON_END, BREAKS, CALENDAR_START, CALENDAR_END } from "./config.js";
+import { DatePicker, parseISO, addDays, daysBetween, md } from "./datepicker.js";
 
 /* ---------- Helpers ---------- */
 const $ = (sel, root = document) => root.querySelector(sel);
-const DAY = 86400000;
 const MON = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
 const MONTH = ["January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December"];
 
@@ -57,28 +57,53 @@ function listText(names) {
 }
 
 const ms = (ts) => (ts && typeof ts.toMillis === "function" ? ts.toMillis() : Number.MAX_SAFE_INTEGER);
+const isDate = (s) => typeof s === "string" && /^\d{4}-\d{2}-\d{2}$/.test(s);
 
 const store = {
   get(k) { try { return localStorage.getItem(k); } catch { return null; } },
   set(k, v) { try { localStorage.setItem(k, v); } catch { /* storage unavailable */ } },
 };
 
-/* ---------- Weekends (Thursday to Sunday) ---------- */
-const parseISO = (s) => { const [y, m, d] = s.split("-").map(Number); return new Date(Date.UTC(y, m - 1, d)); };
-const toISO = (d) => d.toISOString().slice(0, 10);
-
-const WEEKENDS = [];
-for (let d = parseISO(SEASON_START); d <= parseISO(SEASON_END); d = new Date(d.getTime() + 7 * DAY)) {
-  const sun = new Date(d.getTime() + 3 * DAY);
-  WEEKENDS.push({ id: toISO(d), end: toISO(sun), thu: d, sun });
+/* ---------- Rows: Thursday–Sunday weekends, plus longer breaks ---------- */
+const ROWS = [];
+for (let thu = SEASON_START; thu <= SEASON_END; thu = addDays(thu, 7)) {
+  const sun = addDays(thu, 3);
+  if (BREAKS.some((b) => thu <= b.end && sun >= b.start)) continue; // covered by a break
+  ROWS.push({ id: thu, start: thu, end: sun, label: null });
 }
-const WEEK = new Map(WEEKENDS.map((w) => [w.id, w]));
+for (const b of BREAKS) ROWS.push({ id: b.start, start: b.start, end: b.end, label: b.label });
+ROWS.sort((a, b) => (a.start < b.start ? -1 : 1));
+const ROW = new Map(ROWS.map((r) => [r.id, r]));
 
-function rangeLabel(w) {
-  const a = w.thu, b = w.sun;
+function rangeLabel(r) {
+  const a = parseISO(r.start), b = parseISO(r.end);
   return a.getUTCMonth() === b.getUTCMonth()
     ? `${MON[a.getUTCMonth()]} ${a.getUTCDate()}–${b.getUTCDate()}`
     : `${MON[a.getUTCMonth()]} ${a.getUTCDate()}–${MON[b.getUTCMonth()]} ${b.getUTCDate()}`;
+}
+
+// Which row a date range belongs on: the row it overlaps most.
+// Dates between rows go to the nearest one (a Monday joins the weekend
+// before it; a Tuesday or Wednesday joins the weekend after).
+function rowFor(a, d) {
+  let best = null;
+  let bestDays = 0;
+  for (const r of ROWS) {
+    const s = a > r.start ? a : r.start;
+    const e = d < r.end ? d : r.end;
+    if (s <= e) {
+      const days = daysBetween(s, e) + 1;
+      if (days > bestDays) { best = r; bestDays = days; }
+    }
+  }
+  if (best) return best;
+  let pick = null;
+  let dist = Infinity;
+  for (const r of ROWS) {
+    const gap = r.start > d ? daysBetween(d, r.start) : daysBetween(r.end, a);
+    if (gap < dist || (gap === dist && r.start > d)) { pick = r; dist = gap; }
+  }
+  return pick;
 }
 
 function todayISO() {
@@ -86,17 +111,31 @@ function todayISO() {
   return `${n.getFullYear()}-${String(n.getMonth() + 1).padStart(2, "0")}-${String(n.getDate()).padStart(2, "0")}`;
 }
 
-// Mark this weekend (or the next one, once the semester has started).
+// Mark the row happening now (or the next one, once the semester has started).
 const TODAY = todayISO();
 let CURRENT = null;
 let CURRENT_TAG = "";
 {
-  const now = WEEKENDS.find((w) => w.id <= TODAY && TODAY <= w.end);
-  if (now) { CURRENT = now.id; CURRENT_TAG = "This weekend"; }
-  else if (TODAY > WEEKENDS[0].id) {
-    const next = WEEKENDS.find((w) => w.id > TODAY);
+  const now = ROWS.find((r) => r.start <= TODAY && TODAY <= r.end);
+  if (now) { CURRENT = now.id; CURRENT_TAG = now.label ? "Happening now" : "This weekend"; }
+  else if (TODAY > ROWS[0].start) {
+    const next = ROWS.find((r) => r.start > TODAY);
     if (next) { CURRENT = next.id; CURRENT_TAG = "Up next"; }
   }
+}
+
+/* ---------- Reading saved trips and notes ---------- */
+// Older entries were saved with only a weekend; read those as Thursday–Sunday.
+function tripDates(t) {
+  const a = isDate(t.arrive) ? t.arrive : isDate(t.weekend) ? t.weekend : null;
+  if (!a) return null;
+  let d = isDate(t.depart) ? t.depart : isDate(t.weekend) ? addDays(t.weekend, 3) : a;
+  if (d < a) d = a;
+  return [a, d];
+}
+
+function noteDate(n) {
+  return isDate(n.date) ? n.date : isDate(n.weekend) ? n.weekend : null;
 }
 
 /* ---------- State ---------- */
@@ -131,51 +170,43 @@ function buildTimeline() {
   root.replaceChildren();
   let month = -1;
   let section;
-  for (const w of WEEKENDS) {
-    const m = w.thu.getUTCMonth();
+  for (const r of ROWS) {
+    const m = parseISO(r.start).getUTCMonth();
     if (m !== month) {
       month = m;
       section = el("section", { class: "month", "aria-labelledby": `m-${m}` }, el("h2", { id: `m-${m}` }, MONTH[m]));
       root.append(section);
     }
-    const isCurrent = w.id === CURRENT;
+    const isCurrent = r.id === CURRENT;
     section.append(
-      el("article", { class: "weekend", id: `w-${w.id}`, "aria-label": `Weekend of ${rangeLabel(w)}` },
+      el("article", { class: "weekend", id: `r-${r.id}`, "aria-label": r.label ? `${r.label}, ${rangeLabel(r)}` : `Weekend of ${rangeLabel(r)}` },
         el("div", { class: "when" },
-          el("span", { class: "range" }, rangeLabel(w)),
-          isCurrent ? el("span", { class: "tag" }, CURRENT_TAG) : null),
+          el("div", { class: "when-top" },
+            el("span", { class: "range" }, rangeLabel(r)),
+            isCurrent ? el("span", { class: "tag" }, CURRENT_TAG) : null),
+          r.label ? el("span", { class: "period" }, r.label) : null,
+          el("div", { class: "notes" })),
         el("div", { class: "body" },
-          el("div", { class: "notes" }),
           el("div", { class: "trips" }),
-          el("p", { class: "staying" }),
           el("div", { class: "actions" },
-            el("button", { type: "button", class: "link", dataset: { action: "add-trip", week: w.id } }, "Add trip"),
-            el("button", { type: "button", class: "link", dataset: { action: "add-note", week: w.id } }, "Add note"))))
+            el("button", { type: "button", class: "link", dataset: { action: "add-trip", row: r.id } }, "Add trip"),
+            el("button", { type: "button", class: "link", dataset: { action: "add-note", row: r.id } }, "Add note"))))
     );
   }
 }
 
-const byOrder = (a, b) => {
-  const ea = isEveryone(a.people), eb = isEveryone(b.people);
-  if (ea !== eb) return ea ? -1 : 1;
-  return ms(a.createdAt) - ms(b.createdAt);
-};
-
-function isEveryone(people = []) {
-  return ALL_IDS.every((id) => people.includes(id));
-}
-
 function tripRow(t) {
   const people = ALL_IDS.filter((id) => (t.people || []).includes(id));
-  const everyone = isEveryone(people);
+  const everyone = ALL_IDS.every((id) => people.includes(id));
   const booked = t.status === "booked";
   const dim = filter !== "all" && !people.includes(filter);
   const names = everyone ? "Everyone" : listText(people.map((id) => PERSON.get(id).name));
+  const [a, d] = t.dates;
 
   return el("button",
     {
       type: "button",
-      class: `trip ${booked ? "is-booked" : "is-planned"}${everyone ? " is-everyone" : ""}${dim ? " is-dim" : ""}`,
+      class: `trip ${booked ? "is-booked" : "is-planned"}${dim ? " is-dim" : ""}`,
       dataset: { action: "edit-trip", id: t.id },
     },
     el("span", { class: "dest" }, t.destination || "Untitled trip"),
@@ -183,55 +214,39 @@ function tripRow(t) {
     el("span", { class: "who" },
       el("span", { class: "swatches" }, ...people.map(swatch)),
       el("span", {}, t.guests ? `${names} with ${t.guests}` : names)),
-    t.details ? el("span", { class: "details" }, t.details) : null
+    el("span", { class: "meta" },
+      el("span", {}, a === d ? md(a) : `${md(a)} – ${md(d)}`),
+      t.details ? el("span", {}, t.details) : null)
   );
-}
-
-function stayingLine(weekTrips) {
-  if (!weekTrips.length) return [];
-  const away = new Set(weekTrips.flatMap((t) => t.people || []));
-  const groups = new Map();
-  for (const p of PEOPLE) {
-    if (away.has(p.id)) continue;
-    if (!groups.has(p.home)) groups.set(p.home, []);
-    groups.get(p.home).push(p);
-  }
-  const parts = [];
-  for (const [home, ps] of groups) {
-    const nodes = [];
-    ps.forEach((p, i) => {
-      if (i > 0) nodes.push(i === ps.length - 1 ? " and " : ", ");
-      nodes.push(p.id === filter ? el("span", { class: "is-me" }, p.name) : p.name);
-    });
-    parts.push(el("span", { class: "stay-group" }, ...nodes, ` in ${home}`));
-  }
-  return parts;
-}
-
-function renderWeekend(w) {
-  const row = document.getElementById(`w-${w.id}`);
-  const weekTrips = trips.filter((t) => t.weekend === w.id).sort(byOrder);
-  const weekNotes = notes.filter((n) => n.weekend === w.id).sort((a, b) => ms(a.createdAt) - ms(b.createdAt));
-
-  $(".notes", row).replaceChildren(
-    ...weekNotes.map((n) => el("button", { type: "button", class: "note", dataset: { action: "edit-note", id: n.id } }, n.text))
-  );
-  $(".trips", row).replaceChildren(...weekTrips.map(tripRow));
-  $(".staying", row).replaceChildren(...stayingLine(weekTrips));
 }
 
 function renderAll() {
   if (!tripsReady || !notesReady) return;
-  for (const w of WEEKENDS) renderWeekend(w);
+  const tripsByRow = new Map(ROWS.map((r) => [r.id, []]));
+  for (const t of trips) tripsByRow.get(rowFor(...t.dates).id).push(t);
+  const notesByRow = new Map(ROWS.map((r) => [r.id, []]));
+  for (const n of notes) notesByRow.get(rowFor(n.date, n.date).id).push(n);
+
+  for (const r of ROWS) {
+    const row = document.getElementById(`r-${r.id}`);
+    const rowTrips = tripsByRow.get(r.id).sort((x, y) =>
+      x.dates[0] < y.dates[0] ? -1 : x.dates[0] > y.dates[0] ? 1 : ms(x.createdAt) - ms(y.createdAt));
+    const rowNotes = notesByRow.get(r.id).sort((x, y) =>
+      x.date < y.date ? -1 : x.date > y.date ? 1 : ms(x.createdAt) - ms(y.createdAt));
+
+    $(".notes", row).replaceChildren(...rowNotes.map((n) =>
+      el("button", { type: "button", class: "note", dataset: { action: "edit-note", id: n.id } }, `${n.text}, ${md(n.date)}`)));
+    $(".trips", row).replaceChildren(...rowTrips.map(tripRow));
+  }
 }
 
 $("#timeline").addEventListener("click", (e) => {
   const b = e.target.closest("[data-action]");
   if (!b) return;
-  const { action, week, id } = b.dataset;
-  if (action === "add-trip") openTrip({ week });
+  const { action, row, id } = b.dataset;
+  if (action === "add-trip") openTrip({ row: ROW.get(row) });
   else if (action === "edit-trip") { const t = trips.find((x) => x.id === id); if (t) openTrip({ trip: t }); }
-  else if (action === "add-note") openNote({ week });
+  else if (action === "add-note") openNote({ row: ROW.get(row) });
   else if (action === "edit-note") { const n = notes.find((x) => x.id === id); if (n) openNote({ note: n }); }
 });
 
@@ -242,7 +257,7 @@ function onData() {
   renderAll();
   if (!scrolled) {
     scrolled = true;
-    if (CURRENT) document.getElementById(`w-${CURRENT}`)?.scrollIntoView({ block: "start" });
+    if (CURRENT) document.getElementById(`r-${CURRENT}`)?.scrollIntoView({ block: "start" });
   }
 }
 
@@ -254,13 +269,21 @@ function onLoadError(err) {
 }
 
 onSnapshot(collection(db, "trips"), (snap) => {
-  trips = snap.docs.map((d) => ({ id: d.id, ...d.data() })).filter((t) => !t.deleted && WEEK.has(t.weekend));
+  trips = snap.docs
+    .map((d) => ({ id: d.id, ...d.data() }))
+    .filter((t) => !t.deleted)
+    .map((t) => ({ ...t, dates: tripDates(t) }))
+    .filter((t) => t.dates);
   tripsReady = true;
   onData();
 }, onLoadError);
 
 onSnapshot(collection(db, "notes"), (snap) => {
-  notes = snap.docs.map((d) => ({ id: d.id, ...d.data() })).filter((n) => !n.deleted && WEEK.has(n.weekend));
+  notes = snap.docs
+    .map((d) => ({ id: d.id, ...d.data() }))
+    .filter((n) => !n.deleted)
+    .map((n) => ({ ...n, date: noteDate(n) }))
+    .filter((n) => n.date && n.text);
   notesReady = true;
   onData();
 }, onLoadError);
@@ -288,6 +311,20 @@ for (const dlg of document.querySelectorAll("dialog")) {
   dlg.addEventListener("click", (e) => {
     if (e.target === dlg || e.target.closest("[data-close]")) dlg.close();
   });
+  // Escape closes an open calendar first, then the dialog.
+  dlg.addEventListener("cancel", (e) => {
+    const cal = dlg.querySelector(".cal:not([hidden])");
+    if (cal) { e.preventDefault(); cal.picker.close(); }
+  });
+  dlg.addEventListener("close", () => {
+    for (const cal of dlg.querySelectorAll(".cal")) cal.picker.close();
+  });
+}
+
+// Clear a form's error as soon as someone changes something.
+for (const [form, err] of [["#trip-form", "#trip-error"], ["#note-form", "#note-error"]]) {
+  $(form).addEventListener("input", () => { $(err).textContent = ""; });
+  $(form).addEventListener("click", (e) => { if (e.target.closest("[data-pick], .cal-day")) $(err).textContent = ""; });
 }
 
 function armDelete(btn, label, onConfirm) {
@@ -312,18 +349,25 @@ const tripForm = $("#trip-form");
 let editingTrip = null;
 let picked = new Set();
 
-$("#f-week").replaceChildren(...WEEKENDS.map((w) => el("option", { value: w.id }, rangeLabel(w))));
+const arrivePicker = new DatePicker($("#f-arrive"), {
+  min: CALENDAR_START,
+  max: CALENDAR_END,
+  onChange: (a) => {
+    if (departPicker.value < a) departPicker.set(a);
+    syncDepart();
+  },
+});
+const departPicker = new DatePicker($("#f-depart"), { min: CALENDAR_START, max: CALENDAR_END });
+
+function syncDepart() {
+  departPicker.floor = arrivePicker.value;
+  departPicker.rangeStart = arrivePicker.value;
+}
 
 $("#f-people").replaceChildren(
   el("button", { type: "button", class: "pick-chip", dataset: { pick: "all" }, "aria-pressed": "false" }, "Everyone"),
   ...PEOPLE.map((p) => el("button", { type: "button", class: "pick-chip", dataset: { pick: p.id }, "aria-pressed": "false" }, swatch(p.id), p.name))
 );
-
-// Clear a form's error as soon as someone changes something.
-for (const [form, err] of [["#trip-form", "#trip-error"], ["#note-form", "#note-error"]]) {
-  $(form).addEventListener("input", () => { $(err).textContent = ""; });
-  $(form).addEventListener("click", (e) => { if (e.target.closest("[data-pick]")) $(err).textContent = ""; });
-}
 
 function syncPicker() {
   for (const b of $("#f-people").querySelectorAll("[data-pick]")) {
@@ -348,25 +392,29 @@ function tripError(text, focusSel) {
   if (focusSel) $(focusSel).focus();
 }
 
-function openTrip({ week, trip }) {
+function openTrip({ row, trip }) {
   editingTrip = trip || null;
   $("#trip-title").textContent = trip ? "Edit trip" : "Add trip";
   $("#trip-save").textContent = trip ? "Save changes" : "Add trip";
   $("#trip-error").textContent = "";
 
   $("#f-dest").value = trip?.destination || "";
-  $("#f-week").value = trip?.weekend || week || WEEKENDS[0].id;
   $("#f-guests").value = trip?.guests || "";
   $("#f-details").value = trip?.details || "";
   picked = new Set(trip ? trip.people || [] : filter !== "all" ? [filter] : []);
   syncPicker();
 
+  const [a, d] = trip ? trip.dates : [row.start, row.end];
+  arrivePicker.set(a);
+  departPicker.set(d);
+  syncDepart();
+
   // New trips choose a status; existing trips get a one-tap button to move it along.
   $("#f-status-field").hidden = !!trip;
   if (!trip) tripForm.elements.status.value = "planned";
 
-  const row = $("#trip-status-row");
-  row.hidden = !trip;
+  const statusRow = $("#trip-status-row");
+  statusRow.hidden = !trip;
   if (trip) {
     const booked = trip.status === "booked";
     const now = $("#trip-status-now");
@@ -392,7 +440,8 @@ function readTripForm() {
   if (!people.length) { tripError("Pick who's going."); return null; }
   return {
     destination,
-    weekend: $("#f-week").value,
+    arrive: arrivePicker.value,
+    depart: departPicker.value < arrivePicker.value ? arrivePicker.value : departPicker.value,
     people,
     guests: $("#f-guests").value.trim(),
     details: $("#f-details").value.trim(),
@@ -458,15 +507,14 @@ async function deleteTrip() {
 const noteDlg = $("#note-dialog");
 const noteForm = $("#note-form");
 let editingNote = null;
-let noteWeek = null;
+const notePicker = new DatePicker($("#n-date"), { min: CALENDAR_START, max: CALENDAR_END });
 
-function openNote({ week, note }) {
+function openNote({ row, note }) {
   editingNote = note || null;
-  noteWeek = note ? note.weekend : week;
   $("#note-title").textContent = note ? "Edit note" : "Add note";
   $("#note-save").textContent = note ? "Save changes" : "Add note";
-  $("#note-week").textContent = WEEK.has(noteWeek) ? `Weekend of ${rangeLabel(WEEK.get(noteWeek))}` : "";
   $("#n-text").value = note?.text || "";
+  notePicker.set(note ? note.date : row.start);
   $("#note-error").textContent = "";
   const del = $("#note-delete");
   del.hidden = !note;
@@ -479,15 +527,15 @@ noteForm.addEventListener("submit", async (e) => {
   e.preventDefault();
   const text = $("#n-text").value.trim();
   if (!text) { $("#note-error").textContent = "Write the note first."; $("#n-text").focus(); return; }
+  const data = { text, date: notePicker.value };
   const btns = noteForm.querySelectorAll("button");
   btns.forEach((b) => (b.disabled = true));
   try {
     if (editingNote) {
-      await updateDoc(doc(db, "notes", editingNote.id), { text, updatedAt: serverTimestamp() });
+      await updateDoc(doc(db, "notes", editingNote.id), { ...data, updatedAt: serverTimestamp() });
     } else {
       await addDoc(collection(db, "notes"), {
-        text,
-        weekend: noteWeek,
+        ...data,
         deleted: false,
         createdAt: serverTimestamp(),
         updatedAt: serverTimestamp(),

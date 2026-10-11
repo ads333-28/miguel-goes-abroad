@@ -48,10 +48,16 @@
         <input id="f-dest" maxlength="80" autocomplete="off" placeholder="City or place">
       </label>
 
-      <label class="field">
-        <span class="lbl">Weekend</span>
-        <select id="f-week"></select>
-      </label>
+      <div class="date-row">
+        <div class="field datefield">
+          <span class="lbl" id="lbl-arrive">Arrival</span>
+          <button type="button" class="date-btn" id="f-arrive" data-label="Arrival"></button>
+        </div>
+        <div class="field datefield">
+          <span class="lbl" id="lbl-depart">Departure</span>
+          <button type="button" class="date-btn" id="f-depart" data-label="Departure"></button>
+        </div>
+      </div>
 
       <fieldset class="field">
         <legend class="lbl">Who's going</legend>
@@ -60,7 +66,7 @@
 
       <label class="field">
         <span class="lbl">Also coming <span class="opt">(optional)</span></span>
-        <input id="f-guests" maxlength="120" autocomplete="off" placeholder="Friends or family joining, like Skyler">
+        <input id="f-guests" maxlength="120" autocomplete="off" placeholder="Friends or family joining">
       </label>
 
       <label class="field">
@@ -94,12 +100,15 @@
         <h2 id="note-title">Add note</h2>
         <button type="button" class="x" data-close aria-label="Close">×</button>
       </div>
-      <p class="sheet-sub" id="note-week"></p>
-
       <label class="field">
         <span class="lbl">Note</span>
-        <input id="n-text" maxlength="80" autocomplete="off" placeholder="A birthday, holiday or break">
+        <input id="n-text" maxlength="80" autocomplete="off" placeholder="A birthday or holiday">
       </label>
+
+      <div class="field datefield">
+        <span class="lbl">Date</span>
+        <button type="button" class="date-btn" id="n-date" data-label="Date"></button>
+      </div>
 
       <p class="form-error" id="note-error" role="alert"></p>
 
