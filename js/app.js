@@ -1,5 +1,5 @@
 // Home page: the weekend-by-weekend timeline.
-import { db } from "./firebase.js";
+import { db } from "./firebase.js?v=2";
 import {
   collection,
   doc,
@@ -8,8 +8,8 @@ import {
   onSnapshot,
   serverTimestamp,
 } from "https://www.gstatic.com/firebasejs/12.19.0/firebase-firestore.js";
-import { PEOPLE, SEASON_START, SEASON_END, BREAKS, CALENDAR_START, CALENDAR_END } from "./config.js";
-import { DatePicker, parseISO, addDays, daysBetween, md } from "./datepicker.js";
+import { PEOPLE, SEASON_START, SEASON_END, BREAKS, CALENDAR_START, CALENDAR_END } from "./config.js?v=2";
+import { DatePicker, parseISO, addDays, daysBetween, md } from "./datepicker.js?v=2";
 
 /* ---------- Helpers ---------- */
 const $ = (sel, root = document) => root.querySelector(sel);
