@@ -1,0 +1,39 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>One-time setup</title>
+  <style>body{font-family:system-ui,sans-serif;padding:24px;line-height:1.6}</style>
+</head>
+<body>
+  <h1>One-time setup</h1>
+  <p id="out">Loading recommendations…</p>
+  <script type="module">
+    // Unlocks the guide recommendations and saves them to the database.
+    import { db } from "../js/firebase.js?v=3";
+    import { doc, setDoc, serverTimestamp } from "https://www.gstatic.com/firebasejs/12.19.0/firebase-firestore.js";
+
+    const out = document.getElementById("out");
+    const b64 = (s) => Uint8Array.from(atob(s.replace(/-/g, "+").replace(/_/g, "/") + "=".repeat((4 - (s.length % 4)) % 4)), (c) => c.charCodeAt(0));
+    try {
+      const key = new URLSearchParams(location.hash.slice(1)).get("k");
+      if (!key) throw new Error("missing key");
+      const blob = new Uint8Array(await (await fetch("recs.bin", { cache: "no-store" })).arrayBuffer());
+      const cryptoKey = await crypto.subtle.importKey("raw", b64(key), "AES-GCM", false, ["decrypt"]);
+      const zipped = await crypto.subtle.decrypt({ name: "AES-GCM", iv: blob.slice(0, 12) }, cryptoKey, blob.slice(12));
+      const text = await new Response(new Blob([zipped]).stream().pipeThrough(new DecompressionStream("gzip"))).text();
+      const data = JSON.parse(text);
+      let cities = 0, recs = 0;
+      for (const [slug, items] of Object.entries(data)) {
+        await setDoc(doc(db, "guideRecs", slug), { items, updatedAt: serverTimestamp() });
+        cities++; recs += items.length;
+        out.textContent = `Saved ${cities} cities…`;
+      }
+      out.textContent = `Done. Saved ${recs} recommendations for ${cities} cities.`;
+    } catch (err) {
+      out.textContent = "Failed: " + (err.code || "") + " " + err.message;
+    }
+  </script>
+</body>
+</html>
