@@ -2,32 +2,121 @@
 <html lang="en">
 <head>
   <meta charset="utf-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>Spring Abroad</title>
-  <style>
-    :root { color-scheme: light dark; }
-    body {
-      margin: 0;
-      min-height: 100vh;
-      display: grid;
-      place-items: center;
-      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
-      background: #f6f3ee;
-      color: #1f2328;
-      text-align: center;
-      padding: 24px;
-    }
-    @media (prefers-color-scheme: dark) {
-      body { background: #15171a; color: #e8e6e3; }
-    }
-    h1 { font-size: clamp(2rem, 6vw, 3rem); margin: 0 0 8px; }
-    p { margin: 0; opacity: 0.7; }
-  </style>
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <title>Miguel Goes Abroad</title>
+  <meta name="description" content="Our spring 2027 weekends: who's going where.">
+  <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 10 10'%3E%3Cpolygon points='3,0 7,0 10,3 10,7 7,10 3,10 0,7 0,3'/%3E%3C/svg%3E">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Jost:ital,wght@0,300;0,400;0,500;1,300&display=swap">
+  <link rel="stylesheet" href="css/style.css">
 </head>
 <body>
-  <main>
-    <h1>Spring Abroad</h1>
-    <p>Our planning site is on its way.</p>
+  <header class="site-head wrap">
+    <h1>miguel goes abroad</h1>
+    <p class="sub">Spring 2027 in Barcelona and Madrid</p>
+  </header>
+
+  <nav class="people-bar" aria-label="Show plans for">
+    <div class="wrap people-bar__inner" id="filter"></div>
+  </nav>
+
+  <main class="wrap">
+    <p class="status-msg" id="status-msg" role="status">Loading plans…</p>
+    <div id="timeline"></div>
   </main>
+
+  <footer class="wrap site-foot">
+    <p>Anyone with this link can add and edit plans.</p>
+  </footer>
+
+  <!-- Add or edit a trip -->
+  <dialog id="trip-dialog" aria-labelledby="trip-title">
+    <form class="sheet" id="trip-form" novalidate>
+      <div class="sheet-head">
+        <h2 id="trip-title">Add trip</h2>
+        <button type="button" class="x" data-close aria-label="Close">×</button>
+      </div>
+
+      <div class="status-row" id="trip-status-row" hidden>
+        <span class="status-now" id="trip-status-now"></span>
+        <button type="button" id="trip-status-toggle"></button>
+      </div>
+
+      <label class="field">
+        <span class="lbl">Where</span>
+        <input id="f-dest" maxlength="80" autocomplete="off" placeholder="City or place">
+      </label>
+
+      <label class="field">
+        <span class="lbl">Weekend</span>
+        <select id="f-week"></select>
+      </label>
+
+      <fieldset class="field">
+        <legend class="lbl">Who's going</legend>
+        <div class="pick" id="f-people"></div>
+      </fieldset>
+
+      <label class="field">
+        <span class="lbl">Also coming <span class="opt">(optional)</span></span>
+        <input id="f-guests" maxlength="120" autocomplete="off" placeholder="Friends or family joining, like Skyler">
+      </label>
+
+      <label class="field">
+        <span class="lbl">Details <span class="opt">(optional)</span></span>
+        <input id="f-details" maxlength="200" autocomplete="off" placeholder="Anything else to remember">
+      </label>
+
+      <fieldset class="field" id="f-status-field">
+        <legend class="lbl">Status</legend>
+        <div class="seg">
+          <label><input type="radio" name="status" value="planned" checked><span>Planned</span></label>
+          <label><input type="radio" name="status" value="booked"><span>Booked</span></label>
+        </div>
+      </fieldset>
+
+      <p class="form-error" id="trip-error" role="alert"></p>
+
+      <div class="sheet-actions">
+        <button type="button" class="link danger" id="trip-delete" hidden>Delete trip</button>
+        <span class="spacer"></span>
+        <button type="button" class="link" data-close>Cancel</button>
+        <button type="submit" class="primary" id="trip-save">Add trip</button>
+      </div>
+    </form>
+  </dialog>
+
+  <!-- Add or edit a note -->
+  <dialog id="note-dialog" aria-labelledby="note-title">
+    <form class="sheet" id="note-form" novalidate>
+      <div class="sheet-head">
+        <h2 id="note-title">Add note</h2>
+        <button type="button" class="x" data-close aria-label="Close">×</button>
+      </div>
+      <p class="sheet-sub" id="note-week"></p>
+
+      <label class="field">
+        <span class="lbl">Note</span>
+        <input id="n-text" maxlength="80" autocomplete="off" placeholder="A birthday, holiday or break">
+      </label>
+
+      <p class="form-error" id="note-error" role="alert"></p>
+
+      <div class="sheet-actions">
+        <button type="button" class="link danger" id="note-delete" hidden>Delete note</button>
+        <span class="spacer"></span>
+        <button type="button" class="link" data-close>Cancel</button>
+        <button type="submit" class="primary" id="note-save">Add note</button>
+      </div>
+    </form>
+  </dialog>
+
+  <div class="toast" id="toast" role="status" aria-live="polite" hidden>
+    <span id="toast-text"></span>
+    <button type="button" id="toast-undo" hidden>Undo</button>
+  </div>
+
+  <script type="module" src="js/app.js"></script>
 </body>
 </html>

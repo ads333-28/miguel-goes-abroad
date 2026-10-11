@@ -1,0 +1,50 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>One-time setup</title>
+  <style>body{font-family:system-ui,sans-serif;padding:24px;line-height:1.6}</style>
+</head>
+<body>
+  <h1>One-time setup</h1>
+  <p id="out" data-result="pending">Adding starting plans…</p>
+  <ul id="log"></ul>
+  <script type="module">
+    // Adds the starting trips and notes once. Running it again changes nothing.
+    import { db } from "./js/firebase.js";
+    import { doc, getDoc, setDoc, serverTimestamp } from "https://www.gstatic.com/firebasejs/12.19.0/firebase-firestore.js";
+
+    const everyone = ["sam", "casey", "alex", "julia", "lindsay", "alanna"];
+    const items = [
+      ["trips", "start-london", { weekend: "2027-02-25", destination: "London", people: everyone, guests: "", details: "John Summit", status: "planned" }],
+      ["trips", "start-dublin", { weekend: "2027-03-11", destination: "Dublin", people: everyone, guests: "", details: "", status: "planned" }],
+      ["notes", "start-alex-bday", { weekend: "2027-01-07", text: "Alex's birthday" }],
+      ["notes", "start-valentines", { weekend: "2027-02-11", text: "Valentine's Day" }],
+      ["notes", "start-presidents", { weekend: "2027-02-11", text: "Presidents' Day on Monday" }],
+      ["notes", "start-casey-bday", { weekend: "2027-02-18", text: "Casey's birthday" }],
+      ["notes", "start-spring-break-1", { weekend: "2027-03-18", text: "Spring break" }],
+      ["notes", "start-spring-break-2", { weekend: "2027-03-25", text: "Spring break" }],
+      ["notes", "start-easter", { weekend: "2027-03-25", text: "Easter Sunday" }],
+      ["notes", "start-julia-bday", { weekend: "2027-04-15", text: "Julia's birthday" }],
+    ];
+
+    const log = document.getElementById("log");
+    const out = document.getElementById("out");
+    try {
+      for (const [col, id, data] of items) {
+        const ref = doc(db, col, id);
+        const snap = await getDoc(ref);
+        if (snap.exists()) { log.insertAdjacentHTML("beforeend", `<li>Already there: ${id}</li>`); continue; }
+        await setDoc(ref, { ...data, deleted: false, createdAt: serverTimestamp(), updatedAt: serverTimestamp() });
+        log.insertAdjacentHTML("beforeend", `<li>Added: ${id}</li>`);
+      }
+      out.textContent = "Done.";
+      out.dataset.result = "ok";
+    } catch (err) {
+      out.textContent = "Failed: " + (err.code || "") + " " + err.message;
+      out.dataset.result = "error";
+    }
+  </script>
+</body>
+</html>
