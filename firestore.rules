@@ -1,0 +1,46 @@
+rules_version = '2';
+
+// Who can do what in the site's database. Paste this into
+// Firebase → Firestore → Rules, then click Publish.
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    // Anyone with the link can add and edit, but nothing can be permanently
+    // deleted (the site hides deleted items and offers Undo instead).
+    function okWrite() {
+      return request.resource.data.keys().size() <= 20;
+    }
+
+    match /trips/{tripId} {
+      allow read: if true;
+      allow create, update: if okWrite() && request.resource.data.destination is string;
+      allow delete: if false;
+
+      // Flights, places to stay and itinerary plans for one trip.
+      match /{section}/{itemId} {
+        allow read: if section in ['flights', 'stays', 'plans'];
+        allow create, update: if section in ['flights', 'stays', 'plans'] && okWrite();
+        allow delete: if false;
+      }
+    }
+
+    match /notes/{noteId} {
+      allow read: if true;
+      allow create, update: if okWrite() && request.resource.data.text is string;
+      allow delete: if false;
+    }
+
+    // Recommendations your group adds.
+    match /recs/{recId} {
+      allow read: if true;
+      allow create, update: if okWrite() && request.resource.data.name is string;
+      allow delete: if false;
+    }
+
+    // Recommendations from the abroad guides: read-only from the site.
+    match /guideRecs/{city} {
+      allow read: if true;
+      allow write: if false;
+    }
+  }
+}
