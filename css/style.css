@@ -579,6 +579,13 @@ dialog[open] { animation: rise 0.22s ease-out; }
 .pl-event.is-tiny { flex-direction: row; align-items: center; gap: 6px; padding: 2px 7px; }
 .pl-event.is-tiny .pl-title { order: -1; }
 .pl-event.is-allday { position: static; }
+/* Flights block off their time with fine diagonal lines, like travel time
+   in a paper diary. */
+.pl-event.is-flight {
+  border-color: var(--muted);
+  background: repeating-linear-gradient(-45deg, var(--paper) 0 5px, var(--line) 5px 6px);
+}
+.pl-event.is-flight:hover { border-color: var(--ink); background: var(--ink); color: var(--paper); }
 .pl-time { color: var(--muted); font-variant-numeric: tabular-nums; }
 .pl-title { font-weight: 500; font-size: 13px; }
 .pl-place { color: var(--faint); }

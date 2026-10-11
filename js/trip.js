@@ -1,6 +1,6 @@
 // A trip's own page: who and when, flights, places to stay, the itinerary,
 // and recommendations from the abroad guides.
-import { db } from "./firebase.js?v=3";
+import { db } from "./firebase.js?v=4";
 import {
   collection,
   doc,
@@ -10,13 +10,13 @@ import {
   onSnapshot,
   serverTimestamp,
 } from "https://www.gstatic.com/firebasejs/12.19.0/firebase-firestore.js";
-import { CALENDAR_START, CALENDAR_END } from "./config.js?v=3";
-import { DatePicker, parseISO, addDays, daysBetween, md, shortDate } from "./datepicker.js?v=3";
+import { CALENDAR_START, CALENDAR_END } from "./config.js?v=4";
+import { DatePicker, parseISO, addDays, daysBetween, md, shortDate } from "./datepicker.js?v=4";
 import {
   $, el, swatch, mark, peopleText, ms, tripDates, toast, setupDialogs, armDelete,
   withBusy, PeoplePicker, segmented, ALL_IDS,
-} from "./ui.js?v=3";
-import { placesFor, CATEGORIES } from "./cities.js?v=3";
+} from "./ui.js?v=4";
+import { placesFor, CATEGORIES } from "./cities.js?v=4";
 
 const tripId = new URLSearchParams(location.search).get("id");
 const tripRef = tripId ? doc(db, "trips", tripId) : null;
@@ -192,9 +192,56 @@ function layoutDay(items) {
   return evs;
 }
 
+// Flights show on the itinerary by themselves, blocking off the time from
+// takeoff to landing. Nobody adds them as plans; editing the flight moves it.
+// Two people who logged the same flight separately show as one block.
+function flightsOnDays(days) {
+  const merged = new Map();
+  const squash = (s) => (s || "").toUpperCase().replace(/[^A-Z0-9]/g, "");
+  // "Vueling VY 7821", "vy7821" and "VY 7821" are the same flight.
+  const code = (s) => {
+    const m = (s || "").toUpperCase().match(/\b([A-Z]\d|\d[A-Z]|[A-Z]{2,3})\s*(\d{1,4})\b/);
+    return m ? m[1] + m[2] : squash(s);
+  };
+  for (const f of flights) {
+    if (!days.includes(f.date)) continue;
+    const num = code(f.number);
+    const key = num ? `${f.date}|${num}` : `${f.date}|${squash(f.from)}|${squash(f.to)}|${f.dep || ""}`;
+    const hit = merged.get(key);
+    if (!hit) { merged.set(key, { ...f, people: [...(f.people || [])] }); continue; }
+    hit.people = [...new Set([...hit.people, ...(f.people || [])])];
+    if (!isTime(hit.dep) && isTime(f.dep)) { hit.dep = f.dep; hit.arr = f.arr; }
+  }
+  return [...merged.values()].map((f) => ({
+    flight: f,
+    id: f.id,
+    date: f.date,
+    start: isTime(f.dep) ? f.dep : "",
+    end: isTime(f.dep) && isTime(f.arr) ? f.arr : "",
+  }));
+}
+
+function flightTitle(f) {
+  if (f.to) return `Flight to ${f.to}`;
+  if (f.from) return `Flight from ${f.from}`;
+  return `Flight ${f.number || ""}`.trim();
+}
+
+// The flight number, plus who's on it when it isn't everyone on the trip.
+function flightSub(f) {
+  const people = ALL_IDS.filter((id) => f.people.includes(id));
+  const everyone = trip.people.every((id) => people.includes(id));
+  const num = f.to || f.from ? f.number : "";
+  return [num, everyone ? "" : peopleText(people)].filter(Boolean).join(" · ");
+}
+
 function renderPlanner() {
   const days = tripDays();
-  const timed = plans.filter((p) => !p.allDay && isTime(p.start) && days.includes(p.date));
+  const flightItems = flightsOnDays(days);
+  const timed = [
+    ...plans.filter((p) => !p.allDay && isTime(p.start) && days.includes(p.date)),
+    ...flightItems.filter((x) => x.start),
+  ];
   const laid = new Map(days.map((d) => [d, layoutDay(timed.filter((p) => p.date === d))]));
   const all = [...laid.values()].flat();
   const startHour = Math.min(8, ...all.map((ev) => Math.floor(ev.s / 60)));
@@ -216,7 +263,11 @@ function renderPlanner() {
   kids.push(el("div", { class: "pl-label" }, "All day"));
   for (const d of days) {
     const items = plans.filter((p) => p.allDay && p.date === d).sort((x, y) => ms(x.createdAt) - ms(y.createdAt));
+    // A flight with no takeoff time yet still marks the day.
+    const untimed = flightItems.filter((x) => !x.start && x.date === d);
     kids.push(el("div", { class: "pl-allday", dataset: { date: d }, title: "Add an all-day plan" },
+      ...untimed.map(({ flight: f }) => el("button", { type: "button", class: "pl-event is-allday is-flight", dataset: { action: "edit-flight", id: f.id }, title: [flightSub(f), "Add the times to block them off"].filter(Boolean).join(". ") },
+        el("span", { class: "pl-title" }, flightTitle(f)))),
       ...items.map((p) => el("button", { type: "button", class: "pl-event is-allday", dataset: { action: "edit-plan", id: p.id }, title: TYPE_LABEL.get(p.type) || "" },
         el("span", { class: "pl-title" }, p.title)))));
   }
@@ -234,17 +285,34 @@ function renderPlanner() {
       const top = ((ev.s - startHour * 60) / 60) * HOUR;
       const height = Math.max(((ev.e - ev.s) / 60) * HOUR - 2, 20);
       const width = 100 / ev.n;
-      const btn = el("button", {
+      const size = height < 30 ? " is-tiny" : height < 64 ? " is-short" : "";
+      const style = `top:${top}px;height:${height}px;left:calc(${ev.col * width}% + 2px);width:calc(${width}% - 4px)`;
+      if (p.flight) {
+        const f = p.flight;
+        const sub = flightSub(f);
+        const nextDay = isTime(f.arr) && toMin(f.arr) < toMin(f.dep) ? " +1" : "";
+        col.append(el("button", {
+          type: "button",
+          class: `pl-event is-flight${size}`,
+          dataset: { action: "edit-flight", id: f.id },
+          title: [flightTitle(f), sub].filter(Boolean).join(", "),
+          style,
+        },
+          el("span", { class: "pl-time" }, `${fmtTime(p.start)}${p.end ? ` – ${fmtTime(p.end)}${nextDay}` : ""}`),
+          el("span", { class: "pl-title" }, flightTitle(f)),
+          sub && height >= 60 ? el("span", { class: "pl-place" }, sub) : null));
+        continue;
+      }
+      col.append(el("button", {
         type: "button",
-        class: `pl-event${height < 30 ? " is-tiny" : height < 64 ? " is-short" : ""}`,
+        class: `pl-event${size}`,
         dataset: { action: "edit-plan", id: p.id },
         title: [TYPE_LABEL.get(p.type), p.place].filter(Boolean).join(", "),
-        style: `top:${top}px;height:${height}px;left:calc(${ev.col * width}% + 2px);width:calc(${width}% - 4px)`,
+        style,
       },
         el("span", { class: "pl-time" }, `${fmtTime(p.start)}${isTime(p.end) ? ` – ${fmtTime(p.end)}` : ""}`),
         el("span", { class: "pl-title" }, p.title),
-        p.place && height >= 60 ? el("span", { class: "pl-place" }, p.place) : null);
-      col.append(btn);
+        p.place && height >= 60 ? el("span", { class: "pl-place" }, p.place) : null));
     }
     kids.push(col);
   }
@@ -252,6 +320,7 @@ function renderPlanner() {
 }
 
 $("#planner").addEventListener("click", (e) => {
+  if (e.target.closest("[data-action=edit-flight]")) return; // opens the flight (handled below)
   const ev = e.target.closest("[data-action=edit-plan]");
   if (ev) { const p = plans.find((x) => x.id === ev.dataset.id); if (p) openPlan({ plan: p }); return; }
   const allday = e.target.closest(".pl-allday");
@@ -673,7 +742,7 @@ if (!tripRef) {
     if (trip.destination !== lastDestination) { lastDestination = trip.destination; loadGuideRecs(); }
   }, onLoadError);
 
-  onSnapshot(sub("flights"), (snap) => { flights = alive(snap); if (trip) renderFlights(); }, onLoadError);
+  onSnapshot(sub("flights"), (snap) => { flights = alive(snap); if (trip) { renderFlights(); renderPlanner(); } }, onLoadError);
   onSnapshot(sub("stays"), (snap) => { stays = alive(snap); if (trip) renderStays(); }, onLoadError);
   onSnapshot(sub("plans"), (snap) => { plans = alive(snap); if (trip) renderPlanner(); }, onLoadError);
   onSnapshot(collection(db, "recs"), (snap) => { ownRecs = alive(snap); if (trip) renderRecs(); }, onLoadError);

@@ -1,6 +1,6 @@
 // Small helpers shared by every page.
-import { PEOPLE } from "./config.js?v=3";
-import { addDays } from "./datepicker.js?v=3";
+import { PEOPLE } from "./config.js?v=4";
+import { addDays } from "./datepicker.js?v=4";
 
 export const $ = (sel, root = document) => root.querySelector(sel);
 export const PERSON = new Map(PEOPLE.map((p) => [p.id, p]));
