@@ -184,11 +184,31 @@ button { cursor: pointer; }
   width: 100%;
   padding: 16px 18px 18px;
   border: 1px solid var(--ink);
-  background: none;
-  text-align: left;
+  cursor: pointer;
   transition: opacity 0.2s ease;
 }
 .trip.is-booked { background: var(--ink); color: var(--paper); }
+
+.trip .dest {
+  justify-self: start;
+  padding: 0;
+  border: 0;
+  background: none;
+  color: inherit;
+  text-align: left;
+}
+.trip .dest:focus-visible { outline: none; text-decoration: underline; text-decoration-thickness: 1px; text-underline-offset: 6px; }
+
+.trip .side { display: flex; flex-direction: column; align-items: flex-end; gap: 6px; margin-top: 12px; }
+.trip-link {
+  font-size: 13px;
+  color: inherit;
+  text-decoration: underline;
+  text-decoration-thickness: 1px;
+  text-underline-offset: 3px;
+  white-space: nowrap;
+}
+.trip-link:hover { text-decoration-thickness: 2px; }
 
 .trip .dest {
   font-weight: 300;
@@ -209,7 +229,7 @@ button { cursor: pointer; }
   font-size: 13px;
   white-space: nowrap;
 }
-.trip .status { align-self: start; margin-top: 12px; color: var(--muted); }
+.trip .status { color: var(--muted); }
 .trip.is-booked .status { color: var(--paper); }
 
 .mark { width: 9px; height: 9px; flex: none; overflow: visible; }
@@ -418,6 +438,189 @@ dialog[open] { animation: rise 0.22s ease-out; }
 .primary:disabled { opacity: 0.4; cursor: default; }
 .primary.small { padding: 8px 14px; font-size: 14px; }
 
+/* ---------- Form bits shared by every dialog ---------- */
+.seg button { display: inline-flex; align-items: center; padding: 8px 16px; border: 0; background: none; color: var(--muted); }
+.seg button:hover { color: var(--ink); }
+.seg button[aria-checked="true"] { background: var(--ink); color: var(--paper); }
+
+.check { display: inline-flex; align-items: center; gap: 10px; cursor: pointer; }
+.check input { width: 18px; height: 18px; margin: 0; accent-color: var(--ink); }
+
+/* ---------- Trip page ---------- */
+.trip-head { padding-top: clamp(28px, 6vw, 56px); padding-bottom: 8px; }
+.back { color: var(--muted); font-size: 14px; text-decoration: none; }
+.back:hover { color: var(--ink); }
+.trip-dates { margin: 32px 0 8px; font-weight: 500; font-variant-numeric: tabular-nums; }
+.trip-title {
+  margin: 0;
+  font-weight: 300;
+  font-size: clamp(3rem, 13vw, 5.75rem);
+  line-height: 0.95;
+  letter-spacing: -0.03em;
+  overflow-wrap: anywhere;
+}
+.trip-title.is-planned { font-style: italic; }
+.trip-facts { display: flex; flex-wrap: wrap; align-items: center; gap: 6px 26px; margin-top: 20px; color: var(--muted); }
+.trip-facts p { display: inline-flex; align-items: center; gap: 10px; margin: 0; }
+.trip-facts .trip-status { gap: 6px; }
+.trip-status.is-booked { color: var(--ink); }
+.trip-details { margin: 8px 0 0; color: var(--faint); font-size: 14px; }
+.trip-details:empty { display: none; }
+
+.block { margin-top: 64px; }
+.block-head {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 16px;
+  padding-bottom: 10px;
+  border-bottom: 1px solid var(--line);
+}
+.block-head h2 { margin: 0; font-weight: 300; font-size: 1.6rem; letter-spacing: -0.01em; }
+.block-head .link { font-size: 14px; color: var(--ink); text-decoration: underline; text-underline-offset: 3px; }
+.hint { margin: 10px 0 0; color: var(--faint); font-size: 13px; }
+.hint p { margin: 4px 0 0; }
+.empty { margin: 16px 0 0; color: var(--faint); font-size: 14px; }
+
+.group { margin-top: 20px; }
+.group-label { margin: 0; font-size: 13px; font-weight: 400; color: var(--muted); }
+
+/* A flight or a place to stay */
+.item {
+  display: grid;
+  grid-template-columns: 150px 1fr;
+  gap: 4px 24px;
+  width: 100%;
+  padding: 14px 0;
+  border: 0;
+  border-bottom: 1px solid var(--line);
+  background: none;
+  text-align: left;
+  cursor: pointer;
+}
+.item:hover .item-title { text-decoration: underline; text-decoration-thickness: 1px; text-underline-offset: 5px; }
+.item-when { display: flex; flex-direction: column; gap: 2px; padding-top: 4px; color: var(--muted); font-size: 14px; font-variant-numeric: tabular-nums; }
+.item-when .strong { color: var(--ink); font-weight: 500; }
+.item-main { display: flex; flex-direction: column; gap: 3px; min-width: 0; }
+.item-title { font-weight: 300; font-size: 1.5rem; line-height: 1.15; overflow-wrap: anywhere; }
+.item-sub { color: var(--muted); font-size: 14px; }
+.item-note { color: var(--faint); font-size: 13px; }
+.who { display: flex; flex-wrap: wrap; align-items: center; gap: 4px 10px; color: var(--muted); font-size: 14px; }
+.item-link { align-self: flex-start; color: var(--ink); font-size: 13px; text-underline-offset: 3px; }
+
+/* The itinerary: a day-by-day planner, like a paper diary */
+.planner-scroll { margin-top: 14px; overflow-x: auto; border: 1px solid var(--line); }
+.planner {
+  display: grid;
+  grid-template-columns: 54px repeat(var(--days), minmax(132px, 1fr));
+  min-width: min-content;
+}
+.pl-corner, .pl-label, .pl-times { position: sticky; left: 0; z-index: 3; background: var(--paper); }
+.pl-corner, .pl-label { border-bottom: 1px solid var(--line); }
+.pl-dayhead {
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+  padding: 10px 10px 8px;
+  border-left: 1px solid var(--line);
+  border-bottom: 1px solid var(--line);
+}
+.pl-dow { font-weight: 500; }
+.pl-date { color: var(--muted); font-size: 13px; font-variant-numeric: tabular-nums; }
+.pl-label { padding: 9px 8px 0 0; text-align: right; font-size: 11px; color: var(--muted); }
+.pl-allday {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  min-height: 38px;
+  padding: 4px;
+  border-left: 1px solid var(--line);
+  border-bottom: 1px solid var(--line);
+  cursor: pointer;
+}
+.pl-allday:hover, .pl-col:hover { background-color: var(--wash); }
+.pl-times { position: sticky; }
+.pl-hour {
+  position: absolute;
+  right: 8px;
+  transform: translateY(-50%);
+  font-size: 11px;
+  color: var(--muted);
+  white-space: nowrap;
+  font-variant-numeric: tabular-nums;
+}
+.pl-col {
+  position: relative;
+  border-left: 1px solid var(--line);
+  background-image: linear-gradient(to bottom, var(--line) 1px, transparent 1px);
+  background-size: 100% var(--hour);
+  cursor: pointer;
+}
+.pl-event {
+  position: absolute;
+  z-index: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+  padding: 4px 7px;
+  border: 1px solid var(--ink);
+  background: var(--paper);
+  color: var(--ink);
+  font-size: 12px;
+  line-height: 1.25;
+  text-align: left;
+  overflow: hidden;
+}
+.pl-event:hover { background: var(--ink); color: var(--paper); }
+.pl-event:hover .pl-time, .pl-event:hover .pl-place { color: inherit; opacity: 0.75; }
+/* Short plans keep each line on one row; very short ones put the time beside the name. */
+.pl-event.is-short > span, .pl-event.is-tiny > span { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.pl-event.is-short { padding: 3px 7px; }
+.pl-event.is-tiny { flex-direction: row; align-items: center; gap: 6px; padding: 2px 7px; }
+.pl-event.is-tiny .pl-title { order: -1; }
+.pl-event.is-allday { position: static; }
+.pl-time { color: var(--muted); font-variant-numeric: tabular-nums; }
+.pl-title { font-weight: 500; font-size: 13px; }
+.pl-place { color: var(--faint); }
+
+/* Recommendations */
+.rec-city-block { margin-top: 26px; }
+.rec-city-head { display: flex; align-items: baseline; justify-content: space-between; gap: 16px; }
+.rec-city { margin: 0; font-weight: 300; font-size: 2.2rem; letter-spacing: -0.02em; }
+.rec-near { margin-left: 12px; font-size: 13px; letter-spacing: 0; color: var(--muted); vertical-align: middle; }
+.rec-city-head .link { font-size: 14px; color: var(--ink); text-decoration: underline; text-underline-offset: 3px; }
+.rec-cat { margin-top: 22px; }
+.rec-cat-label { margin: 0 0 4px; font-size: 13px; font-weight: 400; color: var(--muted); }
+.rec-list {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+  gap: 0 32px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+.rec { padding: 12px 0 14px; border-top: 1px solid var(--line); }
+.rec-top { display: flex; align-items: baseline; justify-content: space-between; gap: 12px; }
+.rec-name { font-weight: 500; }
+button.rec-name { padding: 0; border: 0; background: none; text-align: left; text-decoration: underline dotted; text-underline-offset: 4px; }
+.tally {
+  flex: none;
+  display: inline-grid;
+  place-items: center;
+  min-width: 22px;
+  height: 22px;
+  padding: 0 5px;
+  background: var(--ink);
+  color: var(--paper);
+  font-size: 12px;
+  font-weight: 500;
+  font-variant-numeric: tabular-nums;
+  clip-path: var(--octagon);
+}
+.rec-note { margin: 3px 0 6px; color: var(--muted); font-size: 14px; line-height: 1.45; }
+.rec .link { font-size: 13px; }
+.more { margin-top: 10px; color: var(--ink); font-size: 14px; text-decoration: underline; text-underline-offset: 3px; }
+
 /* ---------- Toast ---------- */
 .toast {
   position: fixed;
@@ -454,6 +657,10 @@ dialog[open] { animation: rise 0.22s ease-out; }
     max-height: 92dvh;
   }
   .sheet { padding: 20px 20px calc(20px + env(safe-area-inset-bottom)); }
+
+  .item { grid-template-columns: 1fr; }
+  .item-when { flex-direction: row; flex-wrap: wrap; gap: 2px 12px; padding-top: 0; }
+  .block { margin-top: 52px; }
 }
 
 @media (prefers-reduced-motion: reduce) {

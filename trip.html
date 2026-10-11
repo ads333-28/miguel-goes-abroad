@@ -1,0 +1,299 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <title>Trip</title>
+  <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 10 10'%3E%3Cpolygon points='3,0 7,0 10,3 10,7 7,10 3,10 0,7 0,3'/%3E%3C/svg%3E">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Jost:ital,wght@0,300;0,400;0,500;1,300&display=swap">
+  <link rel="stylesheet" href="css/style.css?v=3">
+</head>
+<body class="trip-page">
+  <header class="wrap trip-head">
+    <a class="back" href="./">‹ All weekends</a>
+    <p class="trip-dates" id="t-dates"></p>
+    <h1 class="trip-title" id="t-dest"></h1>
+    <div class="trip-facts">
+      <p class="trip-who" id="t-who"></p>
+      <p class="trip-status" id="t-status"></p>
+    </div>
+    <p class="trip-details" id="t-details"></p>
+  </header>
+
+  <main class="wrap">
+    <p class="status-msg" id="status-msg" role="status">Loading trip…</p>
+
+    <div id="trip-body" hidden>
+      <section class="block" aria-labelledby="h-flights">
+        <div class="block-head">
+          <h2 id="h-flights">Flights</h2>
+          <button type="button" class="link" id="add-flight">Add flight</button>
+        </div>
+        <div id="flights"></div>
+        <div class="hint" id="flight-gaps"></div>
+      </section>
+
+      <section class="block" aria-labelledby="h-stays">
+        <div class="block-head">
+          <h2 id="h-stays">Staying at</h2>
+          <button type="button" class="link" id="add-stay">Add place to stay</button>
+        </div>
+        <div id="stays"></div>
+      </section>
+
+      <section class="block" aria-labelledby="h-plan">
+        <div class="block-head">
+          <h2 id="h-plan">Itinerary</h2>
+          <button type="button" class="link" id="add-plan">Add plan</button>
+        </div>
+        <p class="hint">Tap a time to add a plan there.</p>
+        <div class="planner-scroll" id="planner-scroll">
+          <div class="planner" id="planner"></div>
+        </div>
+      </section>
+
+      <section class="block" aria-labelledby="h-recs">
+        <div class="block-head">
+          <h2 id="h-recs">Recommendations</h2>
+        </div>
+        <p class="hint" id="recs-intro">From the abroad guides, merged. The number shows how many guides recommend it.</p>
+        <div id="recs"></div>
+      </section>
+    </div>
+  </main>
+
+  <footer class="wrap site-foot">
+    <p>Anyone with this link can add and edit plans.</p>
+  </footer>
+
+  <!-- Flight -->
+  <dialog id="flight-dialog" aria-labelledby="flight-title">
+    <form class="sheet" id="flight-form" novalidate>
+      <div class="sheet-head">
+        <h2 id="flight-title">Add flight</h2>
+        <button type="button" class="x" data-close aria-label="Close">×</button>
+      </div>
+
+      <div class="field">
+        <span class="lbl">Direction</span>
+        <div id="fl-dir"></div>
+      </div>
+
+      <fieldset class="field">
+        <legend class="lbl">Who's on this flight</legend>
+        <div class="pick" id="fl-people"></div>
+      </fieldset>
+
+      <label class="field">
+        <span class="lbl">Flight</span>
+        <input id="fl-number" maxlength="60" autocomplete="off" placeholder="Airline and flight number, like Vueling VY 7821">
+      </label>
+
+      <div class="date-row">
+        <label class="field">
+          <span class="lbl">From</span>
+          <input id="fl-from" maxlength="40" autocomplete="off" placeholder="BCN">
+        </label>
+        <label class="field">
+          <span class="lbl">To</span>
+          <input id="fl-to" maxlength="40" autocomplete="off" placeholder="LGW">
+        </label>
+      </div>
+
+      <div class="field datefield">
+        <span class="lbl">Date</span>
+        <button type="button" class="date-btn" id="fl-date" data-label="Flight date"></button>
+      </div>
+
+      <div class="date-row">
+        <label class="field">
+          <span class="lbl">Departs</span>
+          <input id="fl-dep" type="time" step="300">
+        </label>
+        <label class="field">
+          <span class="lbl">Lands <span class="opt">(local time)</span></span>
+          <input id="fl-arr" type="time" step="300">
+        </label>
+      </div>
+
+      <label class="field">
+        <span class="lbl">Notes <span class="opt">(optional)</span></span>
+        <input id="fl-notes" maxlength="200" autocomplete="off" placeholder="Terminal, bags, anything else">
+      </label>
+
+      <p class="form-error" id="flight-error" role="alert"></p>
+
+      <div class="sheet-actions">
+        <button type="button" class="link danger" id="flight-delete" hidden>Delete flight</button>
+        <span class="spacer"></span>
+        <button type="button" class="link" data-close>Cancel</button>
+        <button type="submit" class="primary" id="flight-save">Add flight</button>
+      </div>
+    </form>
+  </dialog>
+
+  <!-- Place to stay -->
+  <dialog id="stay-dialog" aria-labelledby="stay-title">
+    <form class="sheet" id="stay-form" novalidate>
+      <div class="sheet-head">
+        <h2 id="stay-title">Add place to stay</h2>
+        <button type="button" class="x" data-close aria-label="Close">×</button>
+      </div>
+
+      <label class="field">
+        <span class="lbl">Name</span>
+        <input id="st-name" maxlength="80" autocomplete="off" placeholder="Hotel, hostel or Airbnb">
+      </label>
+
+      <label class="field">
+        <span class="lbl">Address <span class="opt">(optional)</span></span>
+        <input id="st-address" maxlength="160" autocomplete="off">
+      </label>
+
+      <div class="date-row">
+        <div class="field datefield">
+          <span class="lbl">Check in</span>
+          <button type="button" class="date-btn" id="st-in" data-label="Check in"></button>
+        </div>
+        <div class="field datefield">
+          <span class="lbl">Check out</span>
+          <button type="button" class="date-btn" id="st-out" data-label="Check out"></button>
+        </div>
+      </div>
+
+      <fieldset class="field">
+        <legend class="lbl">Who's staying here</legend>
+        <div class="pick" id="st-people"></div>
+      </fieldset>
+
+      <label class="field">
+        <span class="lbl">Link <span class="opt">(optional)</span></span>
+        <input id="st-link" type="url" maxlength="500" autocomplete="off" placeholder="Booking or listing page">
+      </label>
+
+      <label class="field">
+        <span class="lbl">Notes <span class="opt">(optional)</span></span>
+        <input id="st-notes" maxlength="200" autocomplete="off" placeholder="Check-in time, how to get in, anything else">
+      </label>
+
+      <p class="form-error" id="stay-error" role="alert"></p>
+
+      <div class="sheet-actions">
+        <button type="button" class="link danger" id="stay-delete" hidden>Delete place</button>
+        <span class="spacer"></span>
+        <button type="button" class="link" data-close>Cancel</button>
+        <button type="submit" class="primary" id="stay-save">Add place</button>
+      </div>
+    </form>
+  </dialog>
+
+  <!-- Itinerary plan -->
+  <dialog id="plan-dialog" aria-labelledby="plan-title">
+    <form class="sheet" id="plan-form" novalidate>
+      <div class="sheet-head">
+        <h2 id="plan-title">Add plan</h2>
+        <button type="button" class="x" data-close aria-label="Close">×</button>
+      </div>
+
+      <label class="field">
+        <span class="lbl">What</span>
+        <input id="pl-title" maxlength="80" autocomplete="off" placeholder="Dinner at Dishoom">
+      </label>
+
+      <div class="field">
+        <span class="lbl">Type</span>
+        <div class="pick" id="pl-type"></div>
+      </div>
+
+      <div class="field">
+        <span class="lbl">Day</span>
+        <div class="pick" id="pl-day"></div>
+      </div>
+
+      <label class="check">
+        <input type="checkbox" id="pl-allday">
+        <span>All day</span>
+      </label>
+
+      <div class="date-row" id="pl-times">
+        <label class="field">
+          <span class="lbl">Starts</span>
+          <input id="pl-start" type="time" step="900">
+        </label>
+        <label class="field">
+          <span class="lbl">Ends</span>
+          <input id="pl-end" type="time" step="900">
+        </label>
+      </div>
+
+      <label class="field">
+        <span class="lbl">Where <span class="opt">(optional)</span></span>
+        <input id="pl-place" maxlength="120" autocomplete="off" placeholder="Address or neighborhood">
+      </label>
+
+      <label class="field">
+        <span class="lbl">Link <span class="opt">(optional)</span></span>
+        <input id="pl-link" type="url" maxlength="500" autocomplete="off" placeholder="Reservation, tickets or website">
+      </label>
+
+      <label class="field">
+        <span class="lbl">Notes <span class="opt">(optional)</span></span>
+        <input id="pl-notes" maxlength="300" autocomplete="off">
+      </label>
+
+      <p class="form-error" id="plan-error" role="alert"></p>
+
+      <div class="sheet-actions">
+        <button type="button" class="link danger" id="plan-delete" hidden>Delete plan</button>
+        <span class="spacer"></span>
+        <button type="button" class="link" data-close>Cancel</button>
+        <button type="submit" class="primary" id="plan-save">Add plan</button>
+      </div>
+    </form>
+  </dialog>
+
+  <!-- Your own recommendation -->
+  <dialog id="rec-dialog" aria-labelledby="rec-title">
+    <form class="sheet" id="rec-form" novalidate>
+      <div class="sheet-head">
+        <h2 id="rec-title">Add a rec</h2>
+        <button type="button" class="x" data-close aria-label="Close">×</button>
+      </div>
+      <p class="sheet-sub" id="rec-city"></p>
+
+      <label class="field">
+        <span class="lbl">Name</span>
+        <input id="rc-name" maxlength="80" autocomplete="off" placeholder="Place, food or activity">
+      </label>
+
+      <div class="field">
+        <span class="lbl">Kind</span>
+        <div class="pick" id="rc-cat"></div>
+      </div>
+
+      <label class="field">
+        <span class="lbl">Why it's good <span class="opt">(optional)</span></span>
+        <input id="rc-note" maxlength="200" autocomplete="off">
+      </label>
+
+      <p class="form-error" id="rec-error" role="alert"></p>
+
+      <div class="sheet-actions">
+        <button type="button" class="link danger" id="rec-delete" hidden>Delete rec</button>
+        <span class="spacer"></span>
+        <button type="button" class="link" data-close>Cancel</button>
+        <button type="submit" class="primary" id="rec-save">Add rec</button>
+      </div>
+    </form>
+  </dialog>
+
+  <div class="toast" id="toast" role="status" aria-live="polite" hidden>
+    <span id="toast-text"></span>
+    <button type="button" id="toast-undo" hidden>Undo</button>
+  </div>
+
+  <script type="module" src="js/trip.js?v=3"></script>
+</body>
+</html>
