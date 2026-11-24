@@ -1,6 +1,6 @@
 // A trip's own page: who and when, flights, places to stay, the itinerary,
 // and recommendations from the abroad guides.
-import { db } from "./firebase.js?v=4";
+import { db } from "./firebase.js?v=5";
 import {
   collection,
   doc,
@@ -10,13 +10,13 @@ import {
   onSnapshot,
   serverTimestamp,
 } from "https://www.gstatic.com/firebasejs/12.19.0/firebase-firestore.js";
-import { CALENDAR_START, CALENDAR_END } from "./config.js?v=4";
-import { DatePicker, parseISO, addDays, daysBetween, md, shortDate } from "./datepicker.js?v=4";
+import { CALENDAR_START, CALENDAR_END } from "./config.js?v=5";
+import { DatePicker, parseISO, addDays, daysBetween, md, shortDate } from "./datepicker.js?v=5";
 import {
   $, el, swatch, mark, peopleText, ms, tripDates, toast, setupDialogs, armDelete,
   withBusy, PeoplePicker, segmented, ALL_IDS,
-} from "./ui.js?v=4";
-import { placesFor, CATEGORIES } from "./cities.js?v=4";
+} from "./ui.js?v=5";
+import { placesFor, CATEGORIES } from "./cities.js?v=5";
 
 const tripId = new URLSearchParams(location.search).get("id");
 const tripRef = tripId ? doc(db, "trips", tripId) : null;

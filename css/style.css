@@ -259,6 +259,23 @@ button { cursor: pointer; }
 .trip.is-booked .who, .trip.is-booked .meta { color: var(--paper); opacity: 0.72; }
 
 .trip.is-dim { opacity: 0.25; }
+
+/* Who's staying home that weekend: everyone not on a trip, one line per city. */
+.home { display: flex; flex-direction: column; align-items: flex-start; gap: 6px; }
+.home:not(:empty) { margin-bottom: 16px; }
+.home-line {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  margin: 0;
+  color: var(--muted);
+  font-size: 14px;
+  line-height: 1.4;
+  transition: opacity 0.2s ease;
+}
+.home-line .swatches { margin-top: 5px; }
+.home-names { color: var(--ink); }
+.home-line.is-dim { opacity: 0.25; }
 .trip.is-dim:hover, .trip.is-dim:focus-visible { opacity: 0.6; }
 
 .actions { display: flex; gap: 22px; }

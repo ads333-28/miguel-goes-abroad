@@ -1,5 +1,5 @@
 // Home page: the weekend-by-weekend timeline.
-import { db } from "./firebase.js?v=4";
+import { db } from "./firebase.js?v=5";
 import {
   collection,
   doc,
@@ -8,12 +8,12 @@ import {
   onSnapshot,
   serverTimestamp,
 } from "https://www.gstatic.com/firebasejs/12.19.0/firebase-firestore.js";
-import { PEOPLE, SEASON_START, SEASON_END, BREAKS, CALENDAR_START, CALENDAR_END } from "./config.js?v=4";
-import { DatePicker, parseISO, addDays, daysBetween, md } from "./datepicker.js?v=4";
+import { PEOPLE, SEASON_START, SEASON_END, BREAKS, CALENDAR_START, CALENDAR_END } from "./config.js?v=5";
+import { DatePicker, parseISO, addDays, daysBetween, md } from "./datepicker.js?v=5";
 import {
   $, el, swatch, mark, peopleText, ms, isDate, store, tripDates, toast,
   setupDialogs, armDelete, withBusy, PeoplePicker, PERSON, ALL_IDS,
-} from "./ui.js?v=4";
+} from "./ui.js?v=5";
 
 const MON = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
 const MONTH = ["January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December"];
@@ -132,6 +132,7 @@ function buildTimeline() {
           el("div", { class: "notes" })),
         el("div", { class: "body" },
           el("div", { class: "trips" }),
+          el("div", { class: "home" }),
           el("div", { class: "actions" },
             el("button", { type: "button", class: "link", dataset: { action: "add-trip", row: r.id } }, "Add trip"),
             el("button", { type: "button", class: "link", dataset: { action: "add-note", row: r.id } }, "Add note"))))
@@ -166,6 +167,24 @@ function tripCard(t) {
   );
 }
 
+// Who's staying home on a weekend: everyone who's there that weekend and
+// not on any of its trips, grouped by the city they live in.
+function homeLines(r, rowTrips) {
+  const away = new Set(rowTrips.flatMap((t) => t.people || []));
+  const byCity = new Map();
+  for (const p of PEOPLE) {
+    if (away.has(p.id) || (p.from && r.end < p.from) || !p.home) continue;
+    if (!byCity.has(p.home)) byCity.set(p.home, []);
+    byCity.get(p.home).push(p.id);
+  }
+  return [...byCity].map(([city, ids]) => {
+    const dim = filter !== "all" && !ids.includes(filter);
+    return el("p", { class: `home-line${dim ? " is-dim" : ""}` },
+      el("span", { class: "swatches" }, ...ids.map(swatch)),
+      el("span", {}, el("span", { class: "home-names" }, peopleText(ids)), ` staying in ${city}`));
+  });
+}
+
 function renderAll() {
   if (!tripsReady || !notesReady) return;
   const tripsByRow = new Map(ROWS.map((r) => [r.id, []]));
@@ -183,6 +202,7 @@ function renderAll() {
     $(".notes", row).replaceChildren(...rowNotes.map((n) =>
       el("button", { type: "button", class: "note", dataset: { action: "edit-note", id: n.id } }, `${n.text}, ${md(n.date)}`)));
     $(".trips", row).replaceChildren(...rowTrips.map(tripCard));
+    $(".home", row).replaceChildren(...homeLines(r, rowTrips));
   }
 }
 

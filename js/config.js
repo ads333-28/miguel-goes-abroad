@@ -1,11 +1,13 @@
 // Site settings. Edit these to change who's in the group or which dates show.
 
 // Everyone in the group, in the order they appear on the site.
-// `home` is where they live (not shown on the page right now).
+// `home` is where they live: anyone not on a trip that weekend shows as
+// "staying in <home>". `from` is the first date they're there, if it's
+// after the first weekend.
 // Colors are set in css/style.css (--p-<id>).
 export const PEOPLE = [
   { id: "sam", name: "Sam", home: "Barcelona" },
-  { id: "casey", name: "Casey", home: "Madrid" },
+  { id: "casey", name: "Casey", home: "Madrid", from: "2027-01-22" },
   { id: "alex", name: "Alex", home: "Barcelona" },
   { id: "julia", name: "Julia", home: "Barcelona" },
   { id: "lindsay", name: "Lindsay", home: "Barcelona" },
