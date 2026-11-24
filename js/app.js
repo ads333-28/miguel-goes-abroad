@@ -1,5 +1,5 @@
 // Home page: the weekend-by-weekend timeline.
-import { db } from "./firebase.js?v=6";
+import { db } from "./firebase.js?v=7";
 import {
   collection,
   doc,
@@ -8,13 +8,13 @@ import {
   onSnapshot,
   serverTimestamp,
 } from "https://www.gstatic.com/firebasejs/12.19.0/firebase-firestore.js";
-import { PEOPLE, SEASON_START, SEASON_END, BREAKS, CALENDAR_START, CALENDAR_END } from "./config.js?v=6";
-import { DatePicker, parseISO, addDays, daysBetween, md } from "./datepicker.js?v=6";
+import { PEOPLE, SEASON_START, SEASON_END, BREAKS, CALENDAR_START, CALENDAR_END } from "./config.js?v=7";
+import { DatePicker, parseISO, addDays, daysBetween, md } from "./datepicker.js?v=7";
 import {
   $, el, swatch, mark, peopleText, ms, isDate, store, tripDates, toast,
   setupDialogs, armDelete, withBusy, PeoplePicker, PERSON, ALL_IDS,
   TRIP_WITH, tripIcon, tripWithLabel,
-} from "./ui.js?v=6";
+} from "./ui.js?v=7";
 
 const MON = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
 const MONTH = ["January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December"];
@@ -200,8 +200,11 @@ function renderAll() {
 
   for (const r of ROWS) {
     const row = document.getElementById(`r-${r.id}`);
+    // Untagged trips first, then Family / Home friends trips; each by date.
+    const tagged = (t) => (TRIP_WITH.some(([k]) => k === t.tripWith) ? 1 : 0);
     const rowTrips = tripsByRow.get(r.id).sort((x, y) =>
-      x.dates[0] < y.dates[0] ? -1 : x.dates[0] > y.dates[0] ? 1 : ms(x.createdAt) - ms(y.createdAt));
+      tagged(x) - tagged(y) ||
+      (x.dates[0] < y.dates[0] ? -1 : x.dates[0] > y.dates[0] ? 1 : ms(x.createdAt) - ms(y.createdAt)));
     const rowNotes = notesByRow.get(r.id).sort((x, y) =>
       x.date < y.date ? -1 : x.date > y.date ? 1 : ms(x.createdAt) - ms(y.createdAt));
 
