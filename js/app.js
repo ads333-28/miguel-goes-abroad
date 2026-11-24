@@ -1,5 +1,5 @@
 // Home page: the weekend-by-weekend timeline.
-import { db } from "./firebase.js?v=5";
+import { db } from "./firebase.js?v=6";
 import {
   collection,
   doc,
@@ -8,12 +8,13 @@ import {
   onSnapshot,
   serverTimestamp,
 } from "https://www.gstatic.com/firebasejs/12.19.0/firebase-firestore.js";
-import { PEOPLE, SEASON_START, SEASON_END, BREAKS, CALENDAR_START, CALENDAR_END } from "./config.js?v=5";
-import { DatePicker, parseISO, addDays, daysBetween, md } from "./datepicker.js?v=5";
+import { PEOPLE, SEASON_START, SEASON_END, BREAKS, CALENDAR_START, CALENDAR_END } from "./config.js?v=6";
+import { DatePicker, parseISO, addDays, daysBetween, md } from "./datepicker.js?v=6";
 import {
   $, el, swatch, mark, peopleText, ms, isDate, store, tripDates, toast,
   setupDialogs, armDelete, withBusy, PeoplePicker, PERSON, ALL_IDS,
-} from "./ui.js?v=5";
+  TRIP_WITH, tripIcon, tripWithLabel,
+} from "./ui.js?v=6";
 
 const MON = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
 const MONTH = ["January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December"];
@@ -154,7 +155,9 @@ function tripCard(t) {
       class: `trip ${booked ? "is-booked" : "is-planned"}${dim ? " is-dim" : ""}`,
       dataset: { action: "edit-trip", id: t.id },
     },
-    el("button", { type: "button", class: "dest", title: "Edit trip" }, t.destination || "Untitled trip"),
+    el("button", { type: "button", class: "dest", title: "Edit trip" },
+      tripIcon(t.tripWith, tripWithLabel(t.tripWith)),
+      el("span", {}, t.destination || "Untitled trip")),
     el("div", { class: "side" },
       el("span", { class: "status" }, mark(), booked ? "Booked" : "Planned"),
       el("a", { class: "trip-link", href: `trip.html?id=${encodeURIComponent(t.id)}` }, "Trip itinerary")),
@@ -167,6 +170,8 @@ function tripCard(t) {
   );
 }
 
+const CITIES = [...new Set(PEOPLE.map((p) => p.home).filter(Boolean))];
+
 // Who's staying home on a weekend: everyone who's there that weekend and
 // not on any of its trips, grouped by the city they live in.
 function homeLines(r, rowTrips) {
@@ -177,7 +182,8 @@ function homeLines(r, rowTrips) {
     if (!byCity.has(p.home)) byCity.set(p.home, []);
     byCity.get(p.home).push(p.id);
   }
-  return [...byCity].map(([city, ids]) => {
+  // Cities always in the same order (Barcelona, then Madrid), whoever is away.
+  return [...byCity].sort((x, y) => CITIES.indexOf(x[0]) - CITIES.indexOf(y[0])).map(([city, ids]) => {
     const dim = filter !== "all" && !ids.includes(filter);
     return el("p", { class: `home-line${dim ? " is-dim" : ""}` },
       el("span", { class: "swatches" }, ...ids.map(swatch)),
@@ -274,6 +280,20 @@ const arrivePicker = new DatePicker($("#f-arrive"), {
 const departPicker = new DatePicker($("#f-depart"), { min: CALENDAR_START, max: CALENDAR_END });
 const whoPicker = new PeoplePicker($("#f-people"));
 
+// Family / Home friends: pick one, or tap it again to clear.
+let tripWith = "";
+function syncWith() {
+  for (const b of $("#f-with").querySelectorAll("[data-with]")) b.setAttribute("aria-pressed", String(b.dataset.with === tripWith));
+}
+$("#f-with").replaceChildren(...TRIP_WITH.map(([kind, label]) =>
+  el("button", { type: "button", class: "pick-chip", dataset: { with: kind }, "aria-pressed": "false" }, tripIcon(kind), label)));
+$("#f-with").addEventListener("click", (e) => {
+  const b = e.target.closest("[data-with]");
+  if (!b) return;
+  tripWith = tripWith === b.dataset.with ? "" : b.dataset.with;
+  syncWith();
+});
+
 function syncDepart() {
   departPicker.floor = arrivePicker.value;
   departPicker.rangeStart = arrivePicker.value;
@@ -294,6 +314,8 @@ function openTrip({ row, trip }) {
   $("#f-guests").value = trip?.guests || "";
   $("#f-details").value = trip?.details || "";
   whoPicker.set(trip ? trip.people || [] : filter !== "all" ? [filter] : []);
+  tripWith = TRIP_WITH.some(([k]) => k === trip?.tripWith) ? trip.tripWith : "";
+  syncWith();
 
   const [a, d] = trip ? trip.dates : [row.start, row.end];
   arrivePicker.set(a);
@@ -334,6 +356,7 @@ function readTripForm() {
     arrive: arrivePicker.value,
     depart: departPicker.value < arrivePicker.value ? arrivePicker.value : departPicker.value,
     people,
+    tripWith,
     guests: $("#f-guests").value.trim(),
     details: $("#f-details").value.trim(),
   };

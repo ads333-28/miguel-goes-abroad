@@ -219,6 +219,11 @@ button { cursor: pointer; }
 }
 .trip:hover .dest { text-decoration: underline; text-decoration-thickness: 1px; text-underline-offset: 6px; }
 
+/* Family / Home friends icon: before the name, as tall as a capital letter. */
+.trip-icon { flex: none; height: 0.7em; width: calc(0.7em * var(--ratio, 1)); fill: currentColor; }
+.trip .dest { display: inline-flex; align-items: baseline; gap: 0.34em; }
+.pick-chip .trip-icon { height: 1em; width: calc(1em * var(--ratio, 1)); }
+
 /* Planned trips are set in italic: still pencilled in. Booked trips stand upright. */
 .trip.is-planned .dest { font-style: italic; }
 
@@ -477,6 +482,7 @@ dialog[open] { animation: rise 0.22s ease-out; }
   overflow-wrap: anywhere;
 }
 .trip-title.is-planned { font-style: italic; }
+.trip-title:has(.trip-icon) { display: flex; align-items: baseline; gap: 0.3em; }
 .trip-facts { display: flex; flex-wrap: wrap; align-items: center; gap: 6px 26px; margin-top: 20px; color: var(--muted); }
 .trip-facts p { display: inline-flex; align-items: center; gap: 10px; margin: 0; }
 .trip-facts .trip-status { gap: 6px; }

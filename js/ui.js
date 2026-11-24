@@ -1,6 +1,6 @@
 // Small helpers shared by every page.
-import { PEOPLE } from "./config.js?v=5";
-import { addDays } from "./datepicker.js?v=5";
+import { PEOPLE } from "./config.js?v=6";
+import { addDays } from "./datepicker.js?v=6";
 
 export const $ = (sel, root = document) => root.querySelector(sel);
 export const PERSON = new Map(PEOPLE.map((p) => [p.id, p]));
@@ -36,6 +36,68 @@ export function mark() {
   poly.setAttribute("points", "3,0.5 7,0.5 9.5,3 9.5,7 7,9.5 3,9.5 0.5,7 0.5,3");
   svg.append(poly);
   return svg;
+}
+
+// Who a trip is with, shown as a small icon before the trip's name.
+// The icons are octagon people (like the color dots), drawn 24 units tall.
+export const TRIP_WITH = [
+  ["family", "Family"],
+  ["friends", "Home friends"],
+];
+const TRIP_ICONS = {
+  family: { // a tall person holding a small person's hand
+    w: 22.68,
+    shapes: [
+      "3.91,0 7.23,0 9.72,2.49 9.72,5.81 7.23,8.3 3.91,8.3 1.42,5.81 1.42,2.49",
+      "0,24 0,14.48 3.44,11.04 7.7,11.04 11.14,14.48 11.14,24",
+      "17.43,6.55 19.84,6.55 21.65,8.36 21.65,10.77 19.84,12.58 17.43,12.58 15.61,10.77 15.61,8.36",
+      "14.58,24 14.58,17.08 17.09,14.57 20.18,14.57 22.68,17.08 22.68,24",
+      "10.63,20.3 15.59,20.3 15.59,18.38 10.63,18.38",
+    ],
+  },
+  friends: { // two friends the same height, holding hands, cheering
+    w: 32.36,
+    shapes: [
+      "7.13,0 10.45,0 12.94,2.49 12.94,5.81 10.45,8.3 7.13,8.3 4.64,5.81 4.64,2.49",
+      "3.22,24 3.22,14.48 6.66,11.04 10.92,11.04 14.36,14.48 14.36,24",
+      "21.91,0 25.23,0 27.73,2.49 27.73,5.81 25.23,8.3 21.91,8.3 19.42,5.81 19.42,2.49",
+      "18,24 18,14.48 21.45,11.04 25.7,11.04 29.14,14.48 29.14,24",
+      "6.44,12.26 2.19,0.71 0,1.52 4.25,13.06",
+      "28.11,13.06 32.36,1.52 30.18,0.71 25.92,12.26",
+      "13.85,18.48 18.51,18.48 18.51,16.56 13.85,16.56",
+    ],
+  },
+};
+
+export function tripIcon(kind, label) {
+  const ic = TRIP_ICONS[kind];
+  if (!ic) return null;
+  const ns = "http://www.w3.org/2000/svg";
+  const svg = document.createElementNS(ns, "svg");
+  svg.setAttribute("viewBox", `0 0 ${ic.w} 24`);
+  svg.setAttribute("class", "trip-icon");
+  svg.style.setProperty("--ratio", String(ic.w / 24));
+  if (label) {
+    svg.setAttribute("role", "img");
+    svg.setAttribute("aria-label", label);
+    const t = document.createElementNS(ns, "title");
+    t.textContent = label;
+    svg.append(t);
+  } else {
+    svg.setAttribute("aria-hidden", "true");
+  }
+  for (const pts of ic.shapes) {
+    const p = document.createElementNS(ns, "polygon");
+    p.setAttribute("points", pts);
+    svg.append(p);
+  }
+  return svg;
+}
+
+// "Family trip", "Home friends trip", or "" for a trip without one.
+export function tripWithLabel(kind) {
+  const hit = TRIP_WITH.find(([k]) => k === kind);
+  return hit ? `${hit[1]} trip` : "";
 }
 
 export function listText(names) {

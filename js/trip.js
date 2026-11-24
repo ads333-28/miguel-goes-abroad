@@ -1,6 +1,6 @@
 // A trip's own page: who and when, flights, places to stay, the itinerary,
 // and recommendations from the abroad guides.
-import { db } from "./firebase.js?v=5";
+import { db } from "./firebase.js?v=6";
 import {
   collection,
   doc,
@@ -10,13 +10,13 @@ import {
   onSnapshot,
   serverTimestamp,
 } from "https://www.gstatic.com/firebasejs/12.19.0/firebase-firestore.js";
-import { CALENDAR_START, CALENDAR_END } from "./config.js?v=5";
-import { DatePicker, parseISO, addDays, daysBetween, md, shortDate } from "./datepicker.js?v=5";
+import { CALENDAR_START, CALENDAR_END } from "./config.js?v=6";
+import { DatePicker, parseISO, addDays, daysBetween, md, shortDate } from "./datepicker.js?v=6";
 import {
   $, el, swatch, mark, peopleText, ms, tripDates, toast, setupDialogs, armDelete,
-  withBusy, PeoplePicker, segmented, ALL_IDS,
-} from "./ui.js?v=5";
-import { placesFor, CATEGORIES } from "./cities.js?v=5";
+  withBusy, PeoplePicker, segmented, ALL_IDS, tripIcon, tripWithLabel,
+} from "./ui.js?v=6";
+import { placesFor, CATEGORIES } from "./cities.js?v=6";
 
 const tripId = new URLSearchParams(location.search).get("id");
 const tripRef = tripId ? doc(db, "trips", tripId) : null;
@@ -75,7 +75,9 @@ function renderHeader() {
   document.title = trip.destination || "Trip";
   $("#t-dates").textContent = a === d ? shortDate(a) : `${shortDate(a)} – ${shortDate(d)}`;
   const title = $("#t-dest");
-  title.textContent = trip.destination || "Untitled trip";
+  title.replaceChildren(
+    ...[tripIcon(trip.tripWith, tripWithLabel(trip.tripWith))].filter(Boolean),
+    el("span", {}, trip.destination || "Untitled trip"));
   title.classList.toggle("is-planned", !booked);
   const names = peopleText(trip.people);
   $("#t-who").replaceChildren(
